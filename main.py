@@ -16,13 +16,20 @@ from marshmallow import Schema, fields
 
 from data.users import User, UserSchema
 from data.works import Work, WorkSchema
+from config import Config
+from sqlalchemy import create_engine
+import sqlalchemy.ext.declarative as dec
+
 
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'yandexlyceum_secret_key'
 # login_manager = LoginManager()
 # login_manager.init_app(app)
 CORS(app)
+app.config.from_object(Config)
+db_session.global_init("db/blogs.db")
+
+
 
 
 def encode_week(start_date, activities_list, data):
@@ -67,6 +74,7 @@ def main():
 def get_classes():
     # fetching from the database
     session = db_session.create_session()
+    #global session
     exam_objects = session.query(Class).all()
 
     # transforming into JSON-serializable objects
@@ -82,6 +90,7 @@ def get_classes():
 def get_activities():
     # fetching from the database
     session = db_session.create_session()
+    #global session
     activities_objects = session.query(Activity).all()
 
     # transforming into JSON-serializable objects
@@ -99,6 +108,7 @@ def get_works():
     if not user:
         return jsonify({'isAuth': 'Nononono'})
     session = db_session.create_session()
+    #global session
     works_objects = session.query(Work).filter(Work.user == user)
     schema = WorkSchema(many=True)
     works = schema.dump(works_objects)
@@ -109,6 +119,7 @@ def get_works():
 
 def decode_week2(user, request):
     session = db_session.create_session()
+    #global session
     activities_objects = list(session.query(Activity).all())
     activitySchema = ActivitySchema(many=True)
     activities = activitySchema.dump(activities_objects)
@@ -146,6 +157,7 @@ def decode_week2(user, request):
 
 def decode_week(user, request):
     session = db_session.create_session()
+    #global session
     activities_objects = list(session.query(Activity).all())
     start_date = date.fromisoformat(request.get_json().get('start_date')[0:10])
     for week_line in request.get_json().get('week_lines'):
@@ -192,6 +204,7 @@ def get_week():
     if not user:
         return jsonify({'isAuth': 'Nononono'})
     session = db_session.create_session()
+    #global session
     start_date = datetime.date.fromisoformat(request.args.get('start_date'))
     date_range = [start_date + datetime.timedelta(days=x) for x in range(7)]
     works_objects = session.query(Work).filter(Work.user == user, Work.date.in_(date_range))
@@ -237,9 +250,10 @@ def rank():
     start_date = date.fromisoformat(request.args.get('start_date')[0:10])
     end_date = date.fromisoformat(request.args.get('end_date')[0:10])
 
-    db_sess = db_session.create_session()
-    activities_objects = list(db_sess.query(Activity).all())
-    users = db_sess.query(User).options(orm.joinedload(User.works)).all()
+    session = db_session.create_session()
+    #global session
+    activities_objects = list(session.query(Activity).all())
+    users = session.query(User).options(orm.joinedload(User.works)).all()
     rank = list()
     for user in users:
         row = dict()
@@ -257,9 +271,10 @@ def rank():
 
 @app.route('/login', methods=['POST'])
 def login():
-    json_data = request.json
-    db_sess = db_session.create_session()
-    user = db_sess.query(User).filter(User.nick_name == json_data['nick_name']).first()
+    json_data = request.args
+    session = db_session.create_session()
+    #global session
+    user = session.query(User).filter(User.nick_name == json_data['nick_name']).first()
     if user and user.check_password(json_data['password']):
         # status = login_user(user, remember=True)
         auth_token = user.encode_auth_token(user.id)
@@ -279,9 +294,10 @@ def login():
 def logout():
     try:
         blacklistToken = BlacklistToken(request.headers.get('Authorization'))
-        db_sess = db_session.create_session()
-        db_sess.add(blacklistToken)
-        db_sess.commit()
+        session = db_session.create_session()
+        #global session
+        session.add(blacklistToken)
+        session.commit()
 
         return jsonify({'status': 'logged out'})
     except Exception as e:
@@ -306,6 +322,7 @@ def get_user_from_token(request):
         resp = User.decode_auth_token(auth_token, db_session)
         if not isinstance(resp, str):
             session = db_session.create_session()
+            #global sessions
             user_object = session.query(User).options(orm.joinedload(User.Class)).filter_by(id=resp).first()
             # schema = UserSchema()
             # user = schema.dump(user_object)
