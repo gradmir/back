@@ -1,1 +1,1 @@
-web: gunicorn main:app --log-level=debug
+web: python3 main.py
