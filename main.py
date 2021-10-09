@@ -27,7 +27,7 @@ app = Flask(__name__)
 # login_manager.init_app(app)
 CORS(app)
 app.config.from_object(Config)
-db_session.global_init("db/blogs.db")
+db_session.global_init()
 
 
 
@@ -60,7 +60,7 @@ def encode_week(start_date, activities_list, data):
 
 
 def main():
-    db_session.global_init("db/blogs.db")
+    db_session.global_init()
     # klass = Klass()
     # klass.name = "7b"
     # db_sess = db_session.create_session()
