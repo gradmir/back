@@ -316,10 +316,8 @@ def get_user_from_token(request):
         return None
 
 
-if __name__ == '__main__':
-    print(1 / 0)
-    gunicorn_logger = logging.getLogger('gunicorn.error')
-    app.logger.handlers = gunicorn_logger.handlers
-    app.logger.setLevel(gunicorn_logger.level)
-    app.logger.debug('Main started')
-    main()
+gunicorn_logger = logging.getLogger('gunicorn.error')
+app.logger.handlers = gunicorn_logger.handlers
+app.logger.setLevel(gunicorn_logger.level)
+app.logger.debug('Main started')
+main()
