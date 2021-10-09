@@ -1,5 +1,6 @@
 from datetime import date
 import datetime as datetime
+import logging
 
 from sqlalchemy import orm
 from flask import Flask, jsonify, request
@@ -315,4 +316,7 @@ def get_user_from_token(request):
 
 
 if __name__ == '__main__':
+    gunicorn_logger = logging.getLogger('gunicorn.error')
+    app.logger.handlers = gunicorn_logger.handlers
+    app.logger.setLevel(gunicorn_logger.level)
     main()
