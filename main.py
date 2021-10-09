@@ -17,6 +17,7 @@ from marshmallow import Schema, fields
 from data.users import User, UserSchema
 from data.works import Work, WorkSchema
 
+print(1/0)
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'yandexlyceum_secret_key'
 # login_manager = LoginManager()
