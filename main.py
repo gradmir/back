@@ -17,7 +17,7 @@ from marshmallow import Schema, fields
 from data.users import User, UserSchema
 from data.works import Work, WorkSchema
 
-print(1/0)
+
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'yandexlyceum_secret_key'
 # login_manager = LoginManager()
@@ -317,6 +317,7 @@ def get_user_from_token(request):
 
 
 if __name__ == '__main__':
+    print(1 / 0)
     gunicorn_logger = logging.getLogger('gunicorn.error')
     app.logger.handlers = gunicorn_logger.handlers
     app.logger.setLevel(gunicorn_logger.level)
