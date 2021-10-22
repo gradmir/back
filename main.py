@@ -271,7 +271,7 @@ def rank():
 
 @app.route('/login', methods=['POST'])
 def login():
-    json_data = request.args
+    json_data = request.get_json()
     session = db_session.create_session()
     #global session
     user = session.query(User).filter(User.nick_name == json_data['nick_name']).first()
