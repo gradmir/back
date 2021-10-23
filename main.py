@@ -11,9 +11,11 @@ from data.blackListTokens import BlacklistToken
 from data.classes import Class, ClassSchema
 from flask_cors import CORS
 import json
+from pywebpush import webpush, WebPushException
+
 from marshmallow import Schema, fields
 # from flask_login import LoginManager, login_user, current_user, logout_user, login_required
-
+from data.pushSubscription import PushSubscription
 from data.users import User, UserSchema
 from data.works import Work, WorkSchema
 from config import Config
@@ -30,6 +32,41 @@ app.config.from_object(Config)
 db_session.global_init()
 
 
+@app.route("/push", methods=["POST"])
+def trigger_push_notifications():
+    session = db_session.create_session()
+    subscriptions = session.query(PushSubscription).first()
+    results = trigger_push_notification(
+        subscriptions,
+        'title',
+        'body'
+    )
+    return jsonify({
+        "status": "success"
+        #"result": results
+    })
+
+def trigger_push_notification(push_subscription, title, body):
+    try:
+        response = webpush(
+            subscription_info=json.loads(push_subscription.subscription_json),
+            data=json.dumps({"title": title, "body": body}),
+            vapid_private_key=app.config["VAPID_PRIVATE_KEY"],
+            vapid_claims={
+                "sub": "mailto:{}".format(
+                    app.config["VAPID_CLAIM_EMAIL"])
+            }
+        )
+        return jsonify(response.ok)
+    except WebPushException as ex:
+        if ex.response and ex.response.json():
+            extra = ex.response.json()
+            print("Remote service replied with a {}:{}, {}",
+                  extra.code,
+                  extra.errno,
+                  extra.message
+                  )
+        return jsonify(extra)
 
 
 def encode_week(start_date, activities_list, data):
