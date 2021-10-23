@@ -197,7 +197,7 @@ def set_week():
     return jsonify({'status': 'ok'})
 
 
-@app.route('/week', methods=['POST'])
+@app.route('/week', methods=['GET', 'POST'])
 def get_week():
     # json_data = request.json
     user = get_user_from_token(request)
