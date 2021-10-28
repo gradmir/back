@@ -1,7 +1,8 @@
-from datetime import date
-import datetime as datetime
+import datetime
 import logging
 
+from dateutil import tz
+import pytz
 from sqlalchemy import orm
 from flask import Flask, jsonify, request
 from flask_wtf import FlaskForm
@@ -19,8 +20,30 @@ from data.pushSubscription import PushSubscription
 from data.users import User, UserSchema
 from data.works import Work, WorkSchema
 from config import Config
-from sqlalchemy import create_engine
-import sqlalchemy.ext.declarative as dec
+from apscheduler.schedulers.background import BackgroundScheduler
+
+
+def trigger_all_notifications():
+    if datetime.date.today().weekday() == 6:
+        return
+    title = "Teacher's checklist"
+    body = "Don't forget to fill it"
+    session = db_session.create_session()
+    subscriptions = session.query(PushSubscription).all()
+    results = []
+    for subscription in subscriptions:
+        results.append(trigger_push_notification(
+            subscription,
+            title,
+            body
+        ))
+    print(results)
+
+scheduler = BackgroundScheduler()
+
+datetime_with_timezone = datetime.datetime(2021, 10, 26, 15, 0, 0, 0,  tz.gettz('Europe/Moscow'))
+scheduler.add_job(func=trigger_all_notifications, trigger="interval", start_date=datetime_with_timezone, hours=24)
+scheduler.start()
 
 
 
@@ -34,30 +57,44 @@ db_session.global_init()
 
 @app.route("/push", methods=["POST"])
 def trigger_push_notifications():
+    json_data = request.args
+    id = json_data['id']
+    title = json_data['title']
+    body = json_data['body']
     session = db_session.create_session()
-    subscriptions = session.query(PushSubscription).first()
-    results = trigger_push_notification(
-        subscriptions,
-        'title',
-        'body'
+    subscription = session.query(PushSubscription).filter(PushSubscription.id == id).first()
+    result = trigger_push_notification(
+        subscription,
+        title,
+        body
     )
-    return jsonify({
-        "status": "success"
-        #"result": results
-    })
+    if isinstance(result, bool):
+        return jsonify({
+            "send": True,
+            "success": result
+        })
+    else:
+        return jsonify(result)
+
+
 
 def trigger_push_notification(push_subscription, title, body):
+    notificationPayload = dict()
+    notificationPayload["notification"] = dict()
+    notificationPayload["notification"]["title"] = title
+    notificationPayload["notification"]["body"] = body
+    notificationPayload["notification"]["vibrate"] = [100, 50, 100]
     try:
         response = webpush(
             subscription_info=json.loads(push_subscription.subscription_json),
-            data=json.dumps({"title": title, "body": body}),
+            data=json.dumps(notificationPayload),
             vapid_private_key=app.config["VAPID_PRIVATE_KEY"],
             vapid_claims={
                 "sub": "mailto:{}".format(
                     app.config["VAPID_CLAIM_EMAIL"])
             }
         )
-        return jsonify(response.ok)
+        return response.ok
     except WebPushException as ex:
         if ex.response and ex.response.json():
             extra = ex.response.json()
@@ -66,7 +103,8 @@ def trigger_push_notification(push_subscription, title, body):
                   extra.errno,
                   extra.message
                   )
-        return jsonify(extra)
+            return extra
+        return ex
 
 
 def encode_week(start_date, activities_list, data):
@@ -164,7 +202,7 @@ def decode_week2(user, request):
 
     session = db_session.create_session()
     user = session.query(User).options(orm.joinedload(User.works)).filter(User.id == user.id).first()
-    start_date = date.fromisoformat(request.get_json().get('start_date')[0:10])
+    start_date = datetime.date.fromisoformat(request.get_json().get('start_date')[0:10])
     for week_line in request.get_json().get('week_lines'):
         activity_name = week_line.get('activity_name')
         activity = next(filter(lambda a: a.name == activity_name, activities_objects))
@@ -196,7 +234,7 @@ def decode_week(user, request):
     session = db_session.create_session()
     #global session
     activities_objects = list(session.query(Activity).all())
-    start_date = date.fromisoformat(request.get_json().get('start_date')[0:10])
+    start_date = datetime.date.fromisoformat(request.get_json().get('start_date')[0:10])
     for week_line in request.get_json().get('week_lines'):
         activity_name = week_line.get('activity_name')
         activity_id = next(filter(lambda a: a.name == activity_name, activities_objects)).id
@@ -284,8 +322,8 @@ def status():
 
 @app.route('/rank')
 def rank():
-    start_date = date.fromisoformat(request.args.get('start_date')[0:10])
-    end_date = date.fromisoformat(request.args.get('end_date')[0:10])
+    start_date = datetime.date.fromisoformat(request.args.get('start_date')[0:10])
+    end_date = datetime.date.fromisoformat(request.args.get('end_date')[0:10])
 
     session = db_session.create_session()
     #global session
@@ -308,7 +346,7 @@ def rank():
 
 @app.route('/login', methods=['POST'])
 def login():
-    json_data = request.get_json()
+    json_data = request.args
     session = db_session.create_session()
     #global session
     user = session.query(User).filter(User.nick_name == json_data['nick_name']).first()
