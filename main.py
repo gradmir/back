@@ -271,6 +271,24 @@ def set_week():
 
     return jsonify({'status': 'ok'})
 
+@app.route('/api/subscription/add', methods=['POST'])
+def add_subscription():
+    json_data = request.get_json()
+    session = db_session.create_session()
+    subscription = PushSubscription()
+    subscription.subscription_json = json.dumps(json_data['subscription_json'])
+    session.add(subscription)
+    session.commit()
+    return jsonify({'status': 'ok'})
+
+@app.route('/api/subscription/remove', methods=['POST'])
+def remove_subscription():
+    json_data = request.get_json()
+    session = db_session.create_session()
+    subscription_json = json.dumps(json_data['subscription_json'])
+    session.query(PushSubscription).filter(PushSubscription.subscription_json == subscription_json).delete()
+    session.commit()
+    return jsonify({'status': 'ok'})
 
 @app.route('/week', methods=['GET', 'POST'])
 def get_week():
